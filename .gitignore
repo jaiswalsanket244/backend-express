@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Logs
+npm-debug.log*
+*.log
+
+# Environment
+.env
+
+# OS files
+.DS_Store
+
+# Runtime data store (keep the seed file, ignore the working DB)
+data/todos.json

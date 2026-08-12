@@ -1,0 +1,25 @@
+{
+  "name": "todo-express-api",
+  "version": "1.0.0",
+  "description": "Express.js REST API for a Todo application with JSON-file persistence",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "keywords": [
+    "express",
+    "todo",
+    "rest",
+    "api"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "2.8.5",
+    "express": "4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "3.1.10"
+  }
+}
