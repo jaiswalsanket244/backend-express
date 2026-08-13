@@ -1,0 +1,42 @@
+// Prisma schema for the authentication module.
+// Datasource is SQLite so the backend is self-contained (no external DB server).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  // Null for OAuth-only users (they authenticate via a provider, not a password).
+  passwordHash String?
+  // "local" for email/password users, otherwise the OAuth provider name (e.g. "google").
+  provider     String   @default("local")
+  // The user's id at the OAuth provider (null for local users).
+  providerId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@index([provider, providerId])
+}
+
+// Persisted refresh tokens for the refresh/rotation flow (implemented in the next sub-issue).
+model RefreshToken {
+  id        String   @id @default(cuid())
+  // Store a hash of the refresh token, never the raw token.
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
