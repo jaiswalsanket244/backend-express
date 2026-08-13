@@ -24,11 +24,76 @@ health endpoint. Auth business logic is implemented in later sub-issues.
 | POST   | `/api/auth/login`                   | stub (501, next sub-issue) |
 | POST   | `/api/auth/refresh`                 | stub (501, next sub-issue) |
 | POST   | `/api/auth/logout`                  | stub (501, next sub-issue) |
-| GET    | `/api/auth/me`                      | stub (501, next sub-issue) |
-| GET    | `/api/auth/oauth/:provider`         | stub (501, later sub-issue) |
-| GET    | `/api/auth/oauth/:provider/callback`| stub (501, later sub-issue) |
+| GET    | `/api/auth/me`                      | implemented (Bearer access token) |
+| GET    | `/api/auth/oauth/:provider`         | implemented (302 / 400 / 503) |
+| GET    | `/api/auth/oauth/:provider/callback`| implemented (query — Google/Microsoft) |
+| POST   | `/api/auth/oauth/:provider/callback`| implemented (form_post — Apple) |
 
 User JSON returned to clients: `{ id, email, name, provider, createdAt }` — never `passwordHash`.
+
+## OAuth setup (Google / Microsoft / Apple)
+
+Sign-in with Google, Microsoft, and Apple is fully wired but ships with **empty
+placeholder credentials**. A provider is only "configured" when its credentials
+below are non-empty (and not obvious placeholders). Until you fill them in:
+
+- `GET /api/auth/oauth/:provider` returns **503** `{ error: "<provider> OAuth is not configured" }`.
+- Unknown providers return **400**.
+
+The app boots and builds fine without any real credentials — nothing crashes.
+
+### Flow
+
+1. Frontend sends the browser to `GET /api/auth/oauth/:provider`.
+2. We **302-redirect** to the provider's authorize endpoint with a signed CSRF
+   `state` (HMAC over `OAUTH_STATE_SECRET`, 10-min TTL). Apple additionally uses
+   `response_mode=form_post`.
+3. The provider redirects back to the callback (query for Google/Microsoft, a
+   `POST` form body for Apple). We validate `state`, exchange the code for
+   tokens, read the profile from the `id_token`, then **upsert/link** the user by
+   email and issue the **same** app access + refresh tokens as the custom flow.
+4. On success we **302-redirect** to the frontend:
+
+   ```
+   ${FRONTEND_URL}/auth/callback#accessToken=<jwt>&refreshToken=<jwt>
+   ```
+
+   Tokens are in the URL **fragment** (`#…`) on purpose: the fragment is never
+   sent to a server or written to access logs. The frontend reads
+   `window.location.hash`, stores the tokens, and clears the hash.
+
+   On **any** failure we redirect to `${FRONTEND_URL}/login?error=<reason>`.
+
+### Account linking policy
+
+Users are matched by email. A brand-new email creates an OAuth user
+(`passwordHash=null`). An existing email is linked — for a password-bearing local
+account we record `providerId` but keep `provider="local"`; a pre-existing
+OAuth-only account adopts the new provider.
+
+### Environment variables to fill in later
+
+Copy `.env.example` → `.env` and set the ones you need. `OAUTH_STATE_SECRET`
+already has a dev default (use a long random value in production).
+
+| Provider  | Variables |
+| --------- | --------- |
+| Google    | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` |
+| Microsoft | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_CALLBACK_URL`, `MICROSOFT_TENANT` (default `common`) |
+| Apple     | `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_CALLBACK_URL` |
+
+### Callback URLs to register with each provider
+
+Register these redirect URIs in each provider's console (adjust host/port for
+your deployment):
+
+- Google — `http://localhost:4000/api/auth/oauth/google/callback`
+- Microsoft — `http://localhost:4000/api/auth/oauth/microsoft/callback`
+- Apple — `http://localhost:4000/api/auth/oauth/apple/callback` (form_post)
+
+> Apple's client secret is an ES256 JWT signed from `APPLE_PRIVATE_KEY` at
+> token-exchange time; the code path compiles and runs, but completing a real
+> Apple sign-in requires a valid key.
 
 ## Setup
 

@@ -28,6 +28,11 @@ export const env = {
   JWT_ACCESS_EXPIRES: get("JWT_ACCESS_EXPIRES", "15m"),
   JWT_REFRESH_EXPIRES: get("JWT_REFRESH_EXPIRES", "7d"),
 
+  // OAuth — secret used to HMAC-sign the stateless CSRF `state` parameter that
+  // round-trips through the provider. Uses a dev default so the app boots, but
+  // MUST be a long random value in production.
+  OAUTH_STATE_SECRET: get("OAUTH_STATE_SECRET", "dev-oauth-state-secret-change-me"),
+
   // OAuth — Google (placeholders)
   GOOGLE_CLIENT_ID: get("GOOGLE_CLIENT_ID", ""),
   GOOGLE_CLIENT_SECRET: get("GOOGLE_CLIENT_SECRET", ""),

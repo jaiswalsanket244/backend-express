@@ -32,8 +32,12 @@ export interface AuthResult extends TokenPair {
 /**
  * Issue a fresh access + refresh token pair for a user and persist the refresh
  * token's hash (never the raw token) so it can later be rotated or revoked.
+ *
+ * This is the single source of truth for token issuance and is shared by both
+ * the custom email/password flow (below) and the OAuth flow
+ * (`src/services/oauth/oauth.service.ts`) so the two can never drift apart.
  */
-async function issueTokens(user: User): Promise<TokenPair> {
+export async function issueTokensForUser(user: User): Promise<TokenPair> {
   const accessToken = signAccessToken({ sub: user.id, email: user.email });
 
   const jti = newTokenId();
@@ -77,7 +81,7 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
     },
   });
 
-  const tokens = await issueTokens(user);
+  const tokens = await issueTokensForUser(user);
   return { user: toSafeUser(user), ...tokens };
 }
 
@@ -103,7 +107,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     throw invalidCredentials;
   }
 
-  const tokens = await issueTokens(user);
+  const tokens = await issueTokensForUser(user);
   return { user: toSafeUser(user), ...tokens };
 }
 
@@ -144,7 +148,7 @@ export async function refresh(rawRefreshToken: string): Promise<TokenPair> {
 
   // Rotate: invalidate the old token, then mint a fresh pair.
   await prisma.refreshToken.delete({ where: { id: stored.id } });
-  return issueTokens(user);
+  return issueTokensForUser(user);
 }
 
 /**
